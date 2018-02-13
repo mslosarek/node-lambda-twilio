@@ -1,0 +1,25 @@
+{
+  "name": "node-lambda-twilio",
+  "version": "0.0.1",
+  "description": "A simple Lambda function to receive and store SMS messages from Twilio",
+  "main": "index.js",
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mslosarek/node-lambda-twilio.git"
+  },
+  "keywords": [
+    "Lambda",
+    "Node",
+    "Twilio",
+    "API",
+    "Gateway",
+    "CloudFormation"
+  ],
+  "author": "Mark Slosarek <mark@slosarek.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mslosarek/node-lambda-twilio/issues"
+  },
+  "homepage": "https://github.com/mslosarek/node-lambda-twilio#readme"
+}
