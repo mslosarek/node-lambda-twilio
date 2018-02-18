@@ -1,0 +1,192 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Transform": "AWS::Serverless-2016-10-31",
+  "Description": "A simple Lambda function to receive and store SMS messages from Twilio",
+  "Resources": {
+    "HandleTwilioFunction": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "index.handleTwilio",
+        "Runtime": "nodejs6.10",
+        "Environment": {
+          "Variables": {
+            "TABLE_NAME": {
+              "Ref": "TwilioTable"
+            }
+          }
+        },
+        "Events": {
+          "PostResource": {
+            "Type": "Api",
+            "Properties": {
+              "Path": "/twilio",
+              "Method": "post",
+              "RestApiId": {
+                "Ref": "TwilioAPIGateway"
+              }
+            }
+          }
+        },
+        "Role": {
+          "Fn::GetAtt": [
+            "LambdaRole",
+            "Arn"
+          ]
+        }
+      }
+    },
+    "TwilioTable": {
+      "Type": "AWS::DynamoDB::Table",
+      "Properties": {
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "id",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "id",
+            "KeyType": "HASH"
+          }
+        ],
+        "ProvisionedThroughput": {
+          "ReadCapacityUnits": 1,
+          "WriteCapacityUnits": 1
+        }
+      }
+    },
+    "LambdaRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "Policies": [
+          {
+            "PolicyName": "TwilioLogDynamoDBReadWrite",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [{
+                "Effect": "Allow",
+                "Action": [
+                  "dynamodb:PutItem",
+                  "dynamodb:DeleteItem",
+                  "dynamodb:GetItem",
+                  "dynamodb:Scan",
+                  "dynamodb:Query",
+                  "dynamodb:UpdateItem"
+                ],
+                "Resource": [
+                  {
+                    "Fn::GetAtt": [
+                      "TwilioTable",
+                      "Arn"
+                    ]
+                  }
+                ]
+              }]
+            }
+          }
+        ],
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs",
+          "arn:aws:iam::aws:policy/AWSLambdaExecute"
+        ],
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            },
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "apigateway.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        }
+      }
+    },
+    "TwilioAPIGateway": {
+      "Type": "AWS::Serverless::Api",
+      "Properties": {
+        "StageName": "Prod",
+        "DefinitionBody": {
+          "swagger": 2.0,
+          "info": {
+            "title": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          "paths": {
+            "/twilio": {
+              "post": {
+                "consumes": [
+                  "application/x-www-form-urlencoded"
+                ],
+                "produces": [
+                  "application/xml"
+                ],
+                "parameters": [
+                  {
+                    "required": true,
+                    "in": "body",
+                    "name": "Empty",
+                    "schema": {
+                      "$ref": "#/definitions/Empty"
+                    }
+                  }
+                ],
+                "responses": {
+                  "200": {
+                    "headers": {
+                      "Content-Type": {
+                        "type": "string"
+                      }
+                    },
+                    "description": "200 response",
+                    "schema": {
+                      "$ref": "#/definitions/Empty"
+                    }
+                  }
+                },
+                "x-amazon-apigateway-integration": {
+                  "httpMethod": "POST",
+                  "passthroughBehavior": "when_no_match",
+                  "requestTemplates": {
+                    "application/x-www-form-urlencoded": "{\"form\" : $input.json(\"$\")}"
+                  },
+                  "responses": {
+                    "default": {
+                      "statusCode": 200,
+                      "responseTemplates": {
+                        "application/xml": "$input.path(\"$\").body"
+                      },
+                      "responseParameters": {
+                        "method.response.header.Content-Type": "'application/xml'"
+                      }
+                    }
+                  },
+                  "type": "aws",
+                  "uri": {
+                    "Fn::Sub": "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HandleTwilioFunction.Arn}/invocations"
+                  }
+                }
+              }
+            }
+          },
+          "definitions": {
+            "Empty": {
+              "type": "object",
+              "title": "Empty Schema"
+            }
+          }
+        }
+      }
+    }
+  }
+}
